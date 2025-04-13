@@ -1,0 +1,56 @@
+<?php
+// Database connection
+$db = new mysqli('localhost', 'root', '', 'user_image_db');
+
+// Check connection
+if ($db->connect_error) {
+    die("Connection failed: " . $db->connect_error);
+}
+
+// Process form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = $db->real_escape_string($_POST['name']);
+    $email = $db->real_escape_string($_POST['email']);
+    
+    // Handle file upload
+    $imagePath = '';
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = 'uploads/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $fileName = uniqid() . '_' . basename($_FILES['image']['name']);
+        $targetPath = $uploadDir . $fileName;
+        
+        // Check if file is an image
+        $imageFileType = strtolower(pathinfo($targetPath, PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+        
+        if (in_array($imageFileType, $allowedExtensions)) {
+            if (move_uploaded_file($_FILES['image']['tmp_name'], $targetPath)) {
+                $imagePath = $fileName;
+            } else {
+                die("Error uploading file.");
+            }
+        } else {
+            die("Only JPG, JPEG, PNG & GIF files are allowed.");
+        }
+    }
+    
+    // Insert into database
+    $stmt = $db->prepare("INSERT INTO users (name, email, image_path) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $name, $email, $imagePath);
+    
+    if ($stmt->execute()) {
+        header("Location: index.php?success=1");
+        exit();
+    } else {
+        die("Error: " . $stmt->error);
+    }
+    
+    $stmt->close();
+}
+
+$db->close();
+?>
